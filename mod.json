@@ -1,0 +1,134 @@
+{
+	"geode": "4.0.0",
+	"gd": {
+		"win": "2.2081",
+		"android": "2.2081",
+		"mac": "2.2081",
+		"ios": "2.2081"
+	},
+	"id": "echo7vancity.ai-deco",
+	"name": "AI Deco",
+	"version": "v1.0.0",
+	"developer": "echo7vancity",
+	"description": "Describe a style, press AI Deco in the editor, and an AI adds decoration around your layout.",
+	"settings": {
+		"api-url": {
+			"type": "string",
+			"name": "API URL",
+			"description": "Any OpenAI-compatible chat completions endpoint (OpenRouter, OpenAI, NVIDIA NIM, Ollama, etc.).",
+			"default": "https://openrouter.ai/api/v1/chat/completions"
+		},
+		"api-key": {
+			"type": "string",
+			"name": "API Key",
+			"description": "Your key for the provider above. Stored in your Geode save data. Never share your save folder.",
+			"default": ""
+		},
+		"model": {
+			"type": "string",
+			"name": "Model",
+			"description": "Model name exactly as your provider lists it.",
+			"default": "openai/gpt-4o-mini"
+		},
+		"style-prompt": {
+			"type": "string",
+			"name": "Style Prompt",
+			"description": "Describe the look you want.",
+			"default": "Technical black-and-white style: deep blacks, thin mechanical outlines, sharp white highlights, sparse orange accents."
+		},
+		"deco-ids": {
+			"type": "string",
+			"name": "Allowed Deco Object IDs",
+			"description": "Comma-separated object IDs the AI may use. Replace these with real deco IDs from the editor.",
+			"default": "211,212"
+		},
+		"use-reference-image": {
+			"type": "bool",
+			"name": "Use Reference Image",
+			"description": "Attach the image picked with the Ref Image button. Needs a vision-capable model.",
+			"default": true
+		},
+		"max-objects": {
+			"type": "int",
+			"name": "Max Objects Placed",
+			"default": 300,
+			"min": 10,
+			"max": 1500
+		},
+		"bpm": {
+			"type": "float",
+			"name": "Song BPM",
+			"description": "Beats per minute of the song. Used by the Beat FX button.",
+			"default": 120.0,
+			"min": 20.0,
+			"max": 400.0
+		},
+		"beat-offset": {
+			"type": "float",
+			"name": "First Beat Offset (seconds)",
+			"description": "Time from the start of the level to the first beat. Tune this by playtesting.",
+			"default": 0.0,
+			"min": -30.0,
+			"max": 60.0
+		},
+		"start-speed": {
+			"type": "int",
+			"name": "Start Speed",
+			"description": "0 = 0.5x, 1 = 1x, 2 = 2x, 3 = 3x, 4 = 4x. Match your level's starting speed.",
+			"default": 1,
+			"min": 0,
+			"max": 4
+		},
+		"pulse-every-beats": {
+			"type": "int",
+			"name": "Flash Every N Beats",
+			"description": "0 turns flashes off.",
+			"default": 1,
+			"min": 0,
+			"max": 64
+		},
+		"pulse-channel": {
+			"type": "int",
+			"name": "Flash Color Channel",
+			"description": "1000 = background, 1001 = ground, 1004 = objects, 1002 = line.",
+			"default": 1000,
+			"min": 1,
+			"max": 1100
+		},
+		"pulse-color": {
+			"type": "string",
+			"name": "Flash Color (R,G,B)",
+			"default": "255,255,255"
+		},
+		"pulse-fade": {
+			"type": "float",
+			"name": "Flash Fade-out (seconds)",
+			"default": 0.25,
+			"min": 0.0,
+			"max": 2.0
+		},
+		"shake-every-beats": {
+			"type": "int",
+			"name": "Shake Every N Beats",
+			"description": "0 turns camera shakes off.",
+			"default": 4,
+			"min": 0,
+			"max": 64
+		},
+		"shake-strength": {
+			"type": "float",
+			"name": "Shake Strength",
+			"default": 1.5,
+			"min": 0.0,
+			"max": 10.0
+		},
+		"trigger-y": {
+			"type": "int",
+			"name": "Trigger Height",
+			"description": "Y position where triggers are placed (keep them out of the way).",
+			"default": 600,
+			"min": 0,
+			"max": 3000
+		}
+	}
+}
