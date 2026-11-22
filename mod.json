@@ -21,7 +21,7 @@
 		"api-key": {
 			"type": "string",
 			"name": "API Key",
-			"description": "Your key for the provider above. Stored in your Geode save data. Never share your save folder.",
+			"description": "Leave blank to use the basic non-AI deco. Never share your save folder; the key is stored there.",
 			"default": ""
 		},
 		"model": {
@@ -41,6 +41,24 @@
 			"name": "Allowed Deco Object IDs",
 			"description": "Comma-separated object IDs the AI may use. Replace these with real deco IDs from the editor.",
 			"default": "211,212"
+		},
+		"density": {
+			"type": "float",
+			"name": "Basic Deco Density",
+			"description": "Used when no API key is set. Chance (0-1) of deco on each exposed edge.",
+			"default": 0.6,
+			"min": 0.0,
+			"max": 1.0
+		},
+		"random-rotation": {
+			"type": "bool",
+			"name": "Basic Deco: Random Rotation",
+			"default": true
+		},
+		"random-scale": {
+			"type": "bool",
+			"name": "Basic Deco: Random Scale",
+			"default": true
 		},
 		"use-reference-image": {
 			"type": "bool",
