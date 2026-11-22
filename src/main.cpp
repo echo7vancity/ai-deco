@@ -3,6 +3,7 @@
 #include <Geode/utils/web.hpp>
 #include <Geode/utils/file.hpp>
 #include <Geode/utils/base64.hpp>
+#include <Geode/utils/async.hpp>
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -20,33 +21,13 @@ static std::pair<int, int> toCell(CCPoint p) {
 	return { (int)std::round(p.x / GRID), (int)std::round(p.y / GRID) };
 }
 
-using PickTask = Task<Result<std::filesystem::path>>;
-
 class $modify(AIDecoUI, EditorUI) {
 	struct Fields {
-		EventListener<web::WebTask> listener;
-		EventListener<PickTask> pickListener;
+		async::TaskHolder<web::WebResponse> listener;
+		async::TaskHolder<Result<std::optional<std::filesystem::path>>> pickHolder;
 		std::filesystem::path refImage;
 		bool busy = false;
 	};
-
-	void onPickImage(CCObject*) {
-		file::FilePickOptions options;
-		options.filters = { { "Images", { "*.png", "*.jpg", "*.jpeg", "*.webp" } } };
-
-		m_fields->pickListener.bind([this](PickTask::Event* e) {
-			if (auto res = e->getValue()) {
-				if (res->isOk()) {
-					m_fields->refImage = res->unwrap();
-					Notification::create(
-						"Reference image: " + m_fields->refImage.filename().string(),
-						NotificationIcon::Success
-					)->show();
-				}
-			}
-		});
-		m_fields->pickListener.setFilter(file::pick(file::PickMode::OpenFile, options));
-	}
 
 	bool init(LevelEditorLayer* lel) {
 		if (!EditorUI::init(lel)) return false;
@@ -86,6 +67,31 @@ class $modify(AIDecoUI, EditorUI) {
 		FLAlertLayer::create("AI Deco", msg, "OK")->show();
 	}
 
+	// ---------------------------------------------------------------
+	// Pick a reference image from disk
+	// ---------------------------------------------------------------
+	void onPickImage(CCObject*) {
+		file::FilePickOptions options;
+		options.filters = { { "Images", { "*.png", "*.jpg", "*.jpeg", "*.webp" } } };
+
+		m_fields->pickHolder.spawn(
+			file::pick(file::PickMode::OpenFile, options),
+			[this](Result<std::optional<std::filesystem::path>> result) {
+				if (!result.isOk()) return;
+				auto opt = result.unwrap();
+				if (!opt) return; // user cancelled
+				m_fields->refImage = opt.value();
+				Notification::create(
+					"Reference image: " + m_fields->refImage.filename().string(),
+					NotificationIcon::Success
+				)->show();
+			}
+		);
+	}
+
+	// ---------------------------------------------------------------
+	// AI Deco: send layout (+ optional image) to an AI, place the result
+	// ---------------------------------------------------------------
 	void onAIDeco(CCObject*) {
 		if (m_fields->busy) {
 			Notification::create("AI Deco is already working...", NotificationIcon::Loading)->show();
@@ -106,7 +112,7 @@ class $modify(AIDecoUI, EditorUI) {
 
 		std::set<int> allowed;
 		for (auto const& part : utils::string::split(idStr, ",")) {
-			int id = utils::numFromString<int>(part).unwrapOr(0);
+			int id = utils::numFromString<int>(std::string(part)).unwrapOr(0);
 			if (id > 0) allowed.insert(id);
 		}
 		if (allowed.empty()) {
@@ -199,12 +205,13 @@ class $modify(AIDecoUI, EditorUI) {
 		m_fields->busy = true;
 		Notification::create("AI Deco: asking the AI...", NotificationIcon::Loading)->show();
 
-		m_fields->listener.bind([this, allowed, occupied, maxObjects](web::WebTask::Event* e) {
-			if (auto res = e->getValue()) {
-				if (!res->ok()) {
-					return this->fail(fmt::format("The API returned an error (HTTP {}). Check your key, URL and model.", res->code()));
+		m_fields->listener.spawn(
+			req.post(apiUrl),
+			[this, allowed, occupied, maxObjects](web::WebResponse res) {
+				if (!res.ok()) {
+					return this->fail(fmt::format("The API returned an error (HTTP {}). Check your key, URL and model.", res.code()));
 				}
-				auto json = res->json().unwrapOr(matjson::Value());
+				auto json = res.json().unwrapOr(matjson::Value());
 				if (!json.isObject() || !json.contains("choices")) {
 					return this->fail("Unexpected API response format.");
 				}
@@ -250,14 +257,13 @@ class $modify(AIDecoUI, EditorUI) {
 
 				m_fields->busy = false;
 				Notification::create(fmt::format("AI Deco placed {} objects", placed), NotificationIcon::Success)->show();
-			} else if (e->isCancelled()) {
-				m_fields->busy = false;
 			}
-		});
-		m_fields->listener.setFilter(req.post(apiUrl));
+		);
 	}
 
-	// Places pulse (flash) and shake triggers on every beat, across the whole level.
+	// ---------------------------------------------------------------
+	// Beat FX: pulse (flash) and shake triggers on every beat
+	// ---------------------------------------------------------------
 	void onBeatFX(CCObject*) {
 		auto mod = Mod::get();
 		double bpm = mod->getSettingValue<double>("bpm");
@@ -283,9 +289,9 @@ class $modify(AIDecoUI, EditorUI) {
 		int r = 255, g = 255, b = 255;
 		auto parts = utils::string::split(colorStr, ",");
 		if (parts.size() == 3) {
-			r = std::clamp(utils::numFromString<int>(parts[0]).unwrapOr(255), 0, 255);
-			g = std::clamp(utils::numFromString<int>(parts[1]).unwrapOr(255), 0, 255);
-			b = std::clamp(utils::numFromString<int>(parts[2]).unwrapOr(255), 0, 255);
+			r = std::clamp(utils::numFromString<int>(std::string(parts[0])).unwrapOr(255), 0, 255);
+			g = std::clamp(utils::numFromString<int>(std::string(parts[1])).unwrapOr(255), 0, 255);
+			b = std::clamp(utils::numFromString<int>(std::string(parts[2])).unwrapOr(255), 0, 255);
 		}
 
 		// Find the end of the level and every speed portal, so beats land at the right x.
@@ -339,8 +345,6 @@ class $modify(AIDecoUI, EditorUI) {
 			if (x > maxX) break;
 
 			if (pulseEvery > 0 && beat % pulseEvery == 0) {
-				// Pulse trigger: key 7/8/9 = RGB, 45/46/47 = fade in/hold/fade out,
-				// 48 = color mode, 51 = target ID, 52 = 0 means color channel.
 				str << "1,1006,2," << (int)x << ",3," << trigY
 					<< ",7," << r << ",8," << g << ",9," << b
 					<< ",45,0,46,0,47," << pulseFade
@@ -348,7 +352,6 @@ class $modify(AIDecoUI, EditorUI) {
 				count++;
 			}
 			if (shakeEvery > 0 && beat % shakeEvery == 0) {
-				// Shake trigger: key 75 = strength, 84 = interval, 10 = duration.
 				str << "1,1520,2," << (int)x << ",3," << (trigY + 60)
 					<< ",75," << shakeStrength << ",84,0,10," << (beatLen * 0.5) << ";";
 				count++;
